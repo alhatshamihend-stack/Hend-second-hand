@@ -1,74 +1,88 @@
-import React, { useEffect, useState } from 'react';
+import { View, Text, Image, Swiper, SwiperItem } from '@tarojs/components';
+import { useEffect, useState } from 'react';
 import Taro from '@tarojs/taro';
-import { View, Text, Image } from '@tarojs/components';
+import { supabase } from '../../utils/supabase.js';
+import './index.css';
 
-import { SUPABASE_ANON_KEY, getProductQuery } from '../../utils/supabase.js';
-
-export default function ProductPage() {
+export default function ProductDetail() {
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const id = Taro.getCurrentInstance().router?.params?.id;
+  const params = Taro.getCurrentInstance().router?.params || {};
+  const productId = params.id;
 
-    const fetchProduct = async () => {
-      if (!id) {
+  useEffect(() => {
+    async function fetchProduct() {
+      if (!productId) {
         setLoading(false);
         return;
       }
 
       try {
-        const res = await fetch(getProductQuery(id), {
-          headers: {
-            apikey: SUPABASE_ANON_KEY,
-            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-          },
-        });
+        const { data, error } = await supabase
+          .from('products_zzer')
+          .select('*')
+          .eq('id', productId)
+          .single();
 
-        if (!res.ok) {
-          throw new Error('Failed to load product');
-        }
-
-        const data = await res.json();
-        setProduct(data[0] || null);
-      } catch (error) {
-        console.error('Error loading product', error);
+        if (error) throw error;
+        setProduct(data);
+      } catch (err) {
+        console.error('Failed to fetch product:', err);
       } finally {
         setLoading(false);
       }
-    };
+    }
 
     fetchProduct();
-  }, []);
+  }, [productId]);
 
-  if (loading) {
-    return <View className='page'>Loading...</View>;
-  }
+  if (loading) return <View className='loading'>Laddar produkt...</View>;
+  if (!product) return <View className='empty'>Produkten hittades inte</View>;
 
-  if (!product) {
-    return <View className='page'>Product not found.</View>;
-  }
-
-  const photos = Array.isArray(product.photos) ? product.photos : [];
+  const photos = product.photos || [];
+  const mainImage = photos[0]?.url || '/placeholder.png';
 
   return (
-    <View className='page product-page'>
-      <View className='gallery'>
-        {photos.length > 0 ? photos.map((photo, index) => (
-          <Image key={`${product.zzer_item_id}-${index}`} src={photo} mode='aspectFill' className='hero-image' />
-        )) : <Image src='https://via.placeholder.com/600x600' mode='aspectFill' className='hero-image' />}
-      </View>
+    <View className='product-detail'>
+      <Swiper className='swiper' indicatorDots autoplay circular>
+        {photos.length > 0 ? (
+          photos.map((photo, idx) => (
+            <SwiperItem key={idx}>
+              <Image src={photo.url} mode='aspectFill' className='swiper-image' />
+            </SwiperItem>
+          ))
+        ) : (
+          <SwiperItem>
+            <Image src={mainImage} mode='aspectFill' className='swiper-image' />
+          </SwiperItem>
+        )}
+      </Swiper>
 
-      <View className='content'>
-        <Text className='grade'>Grade {product.condition_grade || 'B'}</Text>
+      <View className='info-section'>
         <Text className='title'>{product.title}</Text>
-        <Text className='price'>¥{product.selling_price_cny || 0}</Text>
-        {product.brand ? <Text className='meta'>Brand: {product.brand}</Text> : null}
+
+        <View className='meta-row'>
+          <View className={`badge grade-${(product.condition_grade || 'B').toLowerCase()}`}>
+            Skick: {product.condition_grade || 'N/A'}
+          </View>
+          <Text className='price'>¥{product.selling_price_cny}</Text>
+        </View>
+
+        {product.brand && (
+          <View className='detail-item'>
+            <Text className='label'>Varumärke:</Text>
+            <Text className='value'>{product.brand}</Text>
+          </View>
+        )}
+
+        {product.auth_certificate_url && (
+          <View className='detail-item auth'>
+            <Text className='label'>Autentisering:</Text>
+            <Text className='value verified'>✓ Verifierad</Text>
+          </View>
+        )}
       </View>
     </View>
   );
 }
-
-ProductPage.config = {
-  navigationBarTitleText: 'Product Details',
-};
