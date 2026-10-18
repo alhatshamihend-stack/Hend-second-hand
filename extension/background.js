@@ -82,11 +82,24 @@ async function sendToSupabase(functionName, payload) {
     data = {};
   }
 
+  console.log("[Zzer Background] Supabase svar:", redactSecret(data, anonKey));
+
   if (!response.ok) {
     throw new Error(`Request failed with status ${response.status}`);
   }
 
   return { ok: true, data };
+}
+
+function redactSecret(value, secret) {
+  if (typeof value === "string") return value.split(secret).join("[REDACTED]");
+  if (Array.isArray(value)) return value.map((entry) => redactSecret(entry, secret));
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, entry]) => [key, redactSecret(entry, secret)]),
+    );
+  }
+  return value;
 }
 
 function parseRequestBody(details) {
@@ -108,6 +121,34 @@ function parseRequestBody(details) {
   } catch {
     return null;
   }
+}
+
+function mapZzerPayload(raw) {
+  if (!raw || typeof raw !== "object") return null;
+
+  const payload = raw.product || raw.data || raw.payload || raw;
+  if (!payload || typeof payload !== "object") return null;
+  const rawPrice = payload.price ?? payload.selling_price_cny ?? payload.price_cny ?? payload.sale_price;
+  const parsedPrice = typeof rawPrice === "number"
+    ? rawPrice
+    : Number(String(rawPrice ?? "").replace(/[^\d.-]/g, ""));
+
+  return {
+    itemId: payload.itemId ?? payload.id ?? payload.zzer_item_id ?? payload.product_id ?? payload.uuid ?? null,
+    title: payload.title ?? payload.name ?? null,
+    brand: payload.brand || payload.vendor || "Okänd",
+    price: Number.isFinite(parsedPrice) ? parsedPrice : 0,
+    degree: payload.degree || payload.condition_grade || payload.grade || payload.condition || "B",
+    images: Array.isArray(payload.images)
+      ? payload.images
+      : Array.isArray(payload.photos)
+        ? payload.photos
+        : Array.isArray(payload.image_urls)
+          ? payload.image_urls
+          : Array.isArray(payload.media)
+            ? payload.media
+            : [],
+  };
 }
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -135,14 +176,37 @@ chrome.webRequest.onBeforeRequest.addListener(
     if (details.method !== "POST") return;
 
     const requestUrl = new URL(details.url);
-    if (requestUrl.hostname !== ZZER_TRACK_HOST || requestUrl.pathname !== ZZER_TRACK_PATH) return;
+    if (requestUrl.protocol !== "https:" ||
+        requestUrl.hostname !== ZZER_TRACK_HOST ||
+        requestUrl.pathname !== ZZER_TRACK_PATH) return;
 
-    const zzerPayload = parseRequestBody(details);
-    if (zzerPayload === null) {
+    const requestBody = parseRequestBody(details);
+    if (requestBody === null) {
       console.warn("[Sandougi] Skipped Zzer track request with no valid JSON body.");
       return;
     }
 
+    const zzerPayload = mapZzerPayload(requestBody);
+    if (!zzerPayload || !zzerPayload.itemId || !zzerPayload.title) {
+      console.warn("[Sandougi] Skipped Zzer track request without an itemId or title.");
+      return;
+    }
+
+    const safeLoggedUrl = `${requestUrl.origin}${requestUrl.pathname}`;
+    const safeLoggedPayload = {
+      ...zzerPayload,
+      images: zzerPayload.images.map((image) => {
+        if (typeof image !== "string") return image;
+        try {
+          const imageUrl = new URL(image);
+          return `${imageUrl.origin}${imageUrl.pathname}`;
+        } catch {
+          return image;
+        }
+      }),
+    };
+    console.log(`[Zzer Background] Fångade track-POST: ${safeLoggedUrl}`);
+    console.log(`[Zzer Background] Payload extraherad: ${JSON.stringify(safeLoggedPayload)}`);
     sendToSupabase("zzer-track-ingest", {
       zzer_payload: zzerPayload,
       captured_at: new Date().toISOString(),
@@ -158,6 +222,6 @@ chrome.webRequest.onBeforeRequest.addListener(
       console.error("[Sandougi] Zzer track ingest failed:", message);
     });
   },
-  { urls: [`*://${ZZER_TRACK_HOST}${ZZER_TRACK_PATH}*`] },
+  { urls: [`https://${ZZER_TRACK_HOST}${ZZER_TRACK_PATH}*`] },
   ["requestBody"],
 );
