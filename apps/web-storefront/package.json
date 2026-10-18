@@ -1,0 +1,30 @@
+{
+  "name": "web-storefront",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "taro build --type weapp --watch",
+    "build:weapp": "taro build --type weapp",
+    "build:h5": "taro build --type h5",
+    "lint": "eslint src --ext .js,.jsx"
+  },
+  "dependencies": {
+    "@tarojs/components": "^4.0.0",
+    "@tarojs/runtime": "^4.0.0",
+    "@tarojs/taro": "^4.0.0",
+    "@supabase/supabase-js": "^2.45.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.26.0",
+    "@tarojs/cli": "^4.0.0",
+    "@tarojs/plugin-platform-h5": "^4.0.0",
+    "@tarojs/plugin-platform-weapp": "^4.0.0",
+    "@types/react": "^18.3.11",
+    "@types/react-dom": "^18.3.0",
+    "eslint": "^9.17.0",
+    "eslint-plugin-react": "^7.0.0",
+    "typescript": "^5.7.2"
+  }
+}

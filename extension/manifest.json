@@ -1,0 +1,45 @@
+{
+  "manifest_version": 3,
+  "name": "Sandougi Zzer Connector",
+  "version": "1.0.0",
+  "description": "Sends Zzer product data to the Sandougi Supabase ingest endpoint.",
+  "permissions": [
+    "storage",
+    "tabs",
+    "activeTab",
+    "scripting",
+    "webRequest",
+    "webRequestBlocking",
+    "declarativeNetRequest"
+  ],
+  "host_permissions": [
+    "*://localhost/*",
+    "*://*.szchengji-inc.com/*",
+    "*://*.chengji-inc.com/*",
+    "*://*.kuajing-plw.happyporsche.com/*",
+    "*://*.91miaoshou.com/*",
+    "*://*.sandougi.com/*",
+    "https://*.supabase.co/*",
+    "*://gwapi-v2.goshare2.com/*"
+  ],
+  "externally_connectable": {
+    "matches": [
+      "*://localhost/*",
+      "*://*.szchengji-inc.com/*",
+      "*://*.chengji-inc.com/*",
+      "*://*.kuajing-plw.happyporsche.com/*",
+      "*://*.91miaoshou.com/*",
+      "*://*.sandougi.com/*"
+    ]
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "declarative_net_request": {
+    "rule_resources": [{
+      "id": "ruleset_1",
+      "enabled": true,
+      "path": "rules.json"
+    }]
+  }
+}
