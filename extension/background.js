@@ -1,33 +1,7 @@
-const SUPABASE_URL = "https://<project-ref>.supabase.co";
-const EDGE_FUNCTION_URL = `${SUPABASE_URL}/functions/v1/zzer-ingest`;
-const SUPABASE_ANON_KEY = "<replace-with-anon-key>";
-
-function sendToSupabase(payload) {
-  return fetch(EDGE_FUNCTION_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      apikey: SUPABASE_ANON_KEY,
-      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-    },
-    body: JSON.stringify(payload),
-  }).then(async (response) => {
-    const text = await response.text();
-    let data = {};
-
-    try {
-      data = text ? JSON.parse(text) : {};
-    } catch {
-      data = { raw: text };
-    }
-
-    if (!response.ok) {
-      throw new Error(data.error || `Request failed with status ${response.status}`);
-    }
-
-    return { ok: true, data };
-  });
-}
+const SUPABASE_FUNCTIONS_PATH = "/functions/v1/";
+const ZZER_TRACK_HOST = "gwapi-v2.goshare2.com";
+const ZZER_TRACK_PATH = "/producer/api/data/collect/track";
+let missingConfigurationWarningLogged = false;
 
 function normalizeProductPayload(raw) {
   if (!raw || typeof raw !== "object") return null;
@@ -58,34 +32,83 @@ function normalizeProductPayload(raw) {
   };
 }
 
-function handleZzerCapture(data) {
-  const payload = normalizeProductPayload(data);
-  if (!payload) return;
+async function getSupabaseConfig() {
+  const { supabaseProjectUrl, supabaseAnonKey } = await chrome.storage.local.get([
+    "supabaseProjectUrl",
+    "supabaseAnonKey",
+  ]);
 
-  sendToSupabase(payload).catch((error) => {
-    console.error("Sandougi Zzer ingest failed:", error);
-  });
+  if (typeof supabaseProjectUrl !== "string" || typeof supabaseAnonKey !== "string" ||
+      !supabaseProjectUrl.trim() || !supabaseAnonKey.trim()) {
+    throw new Error("Supabase is not configured in chrome.storage.local");
+  }
+
+  let projectUrl;
+  try {
+    projectUrl = new URL(supabaseProjectUrl.trim());
+  } catch {
+    throw new Error("Supabase project URL is invalid");
+  }
+
+  if (projectUrl.protocol !== "https:" || !projectUrl.hostname.endsWith(".supabase.co") ||
+      projectUrl.username || projectUrl.password || projectUrl.pathname !== "/" ||
+      projectUrl.search || projectUrl.hash) {
+    throw new Error("Supabase project URL must be an HTTPS Supabase project URL");
+  }
+
+  return {
+    projectUrl: projectUrl.origin,
+    anonKey: supabaseAnonKey.trim(),
+  };
 }
 
-const observeZzerTracking = () => {
-  const originalFetch = window.fetch.bind(window);
+async function sendToSupabase(functionName, payload) {
+  const { projectUrl, anonKey } = await getSupabaseConfig();
+  const response = await fetch(new URL(`${SUPABASE_FUNCTIONS_PATH}${functionName}`, projectUrl), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      apikey: anonKey,
+      Authorization: `Bearer ${anonKey}`,
+    },
+    body: JSON.stringify(payload),
+  });
 
-  window.fetch = async (...args) => {
-    const [input, init] = args;
-    const url = typeof input === "string" ? input : input?.url || "";
+  const text = await response.text();
+  let data = {};
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    data = {};
+  }
 
-    if (url.includes("gwapi-v2.goshare2.com") && typeof init?.body === "string") {
-      try {
-        const body = JSON.parse(init.body);
-        handleZzerCapture(body);
-      } catch {
-        // ignore non-JSON or malformed responses
-      }
-    }
+  if (!response.ok) {
+    throw new Error(`Request failed with status ${response.status}`);
+  }
 
-    return originalFetch(...args);
-  };
-};
+  return { ok: true, data };
+}
+
+function parseRequestBody(details) {
+  const chunks = details.requestBody?.raw
+    ?.map((entry) => entry.bytes)
+    .filter((bytes) => bytes instanceof ArrayBuffer);
+  if (!chunks?.length) return null;
+
+  const byteLength = chunks.reduce((total, chunk) => total + chunk.byteLength, 0);
+  const bodyBytes = new Uint8Array(byteLength);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bodyBytes.set(new Uint8Array(chunk), offset);
+    offset += chunk.byteLength;
+  }
+
+  try {
+    return JSON.parse(new TextDecoder("utf-8").decode(bodyBytes));
+  } catch {
+    return null;
+  }
+}
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (!message || message.type !== "zzer:product") {
@@ -98,7 +121,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return false;
   }
 
-  sendToSupabase(payload)
+  sendToSupabase("zzer-ingest", payload)
     .then((result) => sendResponse(result))
     .catch((error) => {
       sendResponse({ ok: false, error: error.message || "Unknown error" });
@@ -107,84 +130,34 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   return true;
 });
 
-observeZzerTracking();
-
-// --- SANDOUGI ZZER INTEGRATION START ---
-const ZZER_TRACK_URL = "gwapi-v2.goshare2.com/producer/api/data/collect/track";
-
-chrome.webRequest.onBeforeSendHeaders.addListener(
-  (details) => {
-    if (!details.url.includes(ZZER_TRACK_URL)) return;
-    if (details.method !== "POST") return;
-
-    let body = null;
-    if (details.requestBody && details.requestBody.raw) {
-      const decoder = new TextDecoder("utf-8");
-      body = decoder.decode(details.requestBody.raw[0].bytes);
-    }
-
-    if (body) {
-      try {
-        const payload = JSON.parse(body);
-        fetch(`${SUPABASE_URL}/functions/v1/zzer-track-ingest`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-          },
-          body: JSON.stringify({
-            zzer_payload: payload,
-            captured_at: new Date().toISOString(),
-          }),
-        }).catch((err) => {
-          console.error("[Sandougi] Ingest error:", err);
-        });
-      } catch (error) {
-        console.error("[Sandougi] Failed to parse Zzer body:", error);
-      }
-    }
-  },
-  { urls: ["*://gwapi-v2.goshare2.com/*"] },
-  ["requestBody"],
-);
-
 chrome.webRequest.onBeforeRequest.addListener(
   (details) => {
-    if (!details.url.includes(ZZER_TRACK_URL) || details.method !== "POST") {
+    if (details.method !== "POST") return;
+
+    const requestUrl = new URL(details.url);
+    if (requestUrl.hostname !== ZZER_TRACK_HOST || requestUrl.pathname !== ZZER_TRACK_PATH) return;
+
+    const zzerPayload = parseRequestBody(details);
+    if (zzerPayload === null) {
+      console.warn("[Sandougi] Skipped Zzer track request with no valid JSON body.");
       return;
     }
 
-    if (details.requestBody && details.requestBody.raw) {
-      try {
-        const decoder = new TextDecoder("utf-8");
-        const rawData = decoder.decode(details.requestBody.raw[0].bytes);
-        const jsonData = JSON.parse(rawData);
-
-        console.log("[Sandougi] Captured Zzer Data:", jsonData);
-
-        fetch(`${SUPABASE_URL}/functions/v1/zzer-track-ingest`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-          },
-          body: JSON.stringify({
-            zzer_payload: jsonData,
-            captured_at: new Date().toISOString(),
-          }),
-        }).then((res) => {
-          if (!res.ok) {
-            console.error("[Sandougi] Ingest failed:", res.status);
-          }
-        }).catch((err) => {
-          console.error("[Sandougi] Ingest error:", err);
-        });
-      } catch (e) {
-        console.error("[Sandougi] Failed to parse Zzer body:", e);
+    sendToSupabase("zzer-track-ingest", {
+      zzer_payload: zzerPayload,
+      captured_at: new Date().toISOString(),
+    }).catch((error) => {
+      const message = error.message || "Unknown error";
+      if (message.includes("not configured")) {
+        if (!missingConfigurationWarningLogged) {
+          console.warn("[Sandougi] Configure Supabase in chrome.storage.local to enable Zzer track forwarding.");
+          missingConfigurationWarningLogged = true;
+        }
+        return;
       }
-    }
+      console.error("[Sandougi] Zzer track ingest failed:", message);
+    });
   },
-  { urls: ["*://gwapi-v2.goshare2.com/*"] },
+  { urls: [`*://${ZZER_TRACK_HOST}${ZZER_TRACK_PATH}*`] },
   ["requestBody"],
 );
-// --- SANDOUGI ZZER INTEGRATION END ---
