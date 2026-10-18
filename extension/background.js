@@ -128,26 +128,23 @@ function mapZzerPayload(raw) {
 
   const payload = raw.product || raw.data || raw.payload || raw;
   if (!payload || typeof payload !== "object") return null;
-  const rawPrice = payload.price ?? payload.selling_price_cny ?? payload.price_cny ?? payload.sale_price;
+  const detail = payload.detail && typeof payload.detail === "object" ? payload.detail : payload;
+  const brand = payload.brand && typeof payload.brand === "object"
+    ? payload.brand.name
+    : payload.brand;
+  const rawPrice = detail.price ?? payload.price ?? payload.selling_price_cny ?? payload.price_cny ?? payload.sale_price;
   const parsedPrice = typeof rawPrice === "number"
     ? rawPrice
     : Number(String(rawPrice ?? "").replace(/[^\d.-]/g, ""));
+  const images = detail.imageList ?? detail.images ?? payload.images ?? payload.photos ?? payload.image_urls ?? payload.media;
 
   return {
-    itemId: payload.itemId ?? payload.id ?? payload.zzer_item_id ?? payload.product_id ?? payload.uuid ?? null,
-    title: payload.title ?? payload.name ?? null,
-    brand: payload.brand || payload.vendor || "Okänd",
+    itemId: detail.id ?? payload.itemId ?? payload.id ?? payload.zzer_item_id ?? payload.product_id ?? payload.uuid ?? null,
+    title: detail.name ?? payload.title ?? payload.name ?? null,
+    brand: brand || payload.vendor || "Okänd",
     price: Number.isFinite(parsedPrice) ? parsedPrice : 0,
-    degree: payload.degree || payload.condition_grade || payload.grade || payload.condition || "B",
-    images: Array.isArray(payload.images)
-      ? payload.images
-      : Array.isArray(payload.photos)
-        ? payload.photos
-        : Array.isArray(payload.image_urls)
-          ? payload.image_urls
-          : Array.isArray(payload.media)
-            ? payload.media
-            : [],
+    degree: detail.degreeDesc || detail.degree || payload.degree || payload.condition_grade || payload.grade || payload.condition || "B",
+    images: Array.isArray(images) ? images : [],
   };
 }
 
