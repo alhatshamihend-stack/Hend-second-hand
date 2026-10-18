@@ -1,4 +1,21 @@
-const path = require('path');
+const path = require('node:path');
+
+const aliasMap = {
+  '@': path.resolve(__dirname, '..', 'src'),
+  '@sandougi/shared-schema': path.resolve(
+    __dirname,
+    '..',
+    '..',
+    'packages',
+    'shared-schema',
+    'src',
+    'index.ts',
+  ),
+  '@tarojs/shared': path.resolve(__dirname, '..', 'node_modules', '@tarojs', 'shared'),
+  '@tarojs/runtime': path.resolve(__dirname, '..', 'node_modules', '@tarojs', 'runtime'),
+  '@tarojs/components': path.resolve(__dirname, '..', 'node_modules', '@tarojs', 'components'),
+  '@tarojs/taro': path.resolve(__dirname, '..', 'node_modules', '@tarojs', 'taro'),
+};
 
 module.exports = {
   projectName: 'web-storefront',
@@ -19,7 +36,14 @@ module.exports = {
   },
   framework: 'react',
   compiler: 'webpack5',
-  alias: {
-    '@': path.resolve(__dirname, '../src'),
+  alias: { ...aliasMap },
+  webpackChain(chain) {
+    const resolveAlias = chain.resolve.alias;
+
+    Object.entries(aliasMap).forEach(([key, value]) => {
+      resolveAlias.set(key, value);
+    });
+
+    return chain;
   },
 };
