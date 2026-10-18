@@ -19,9 +19,9 @@ const ZzerProductSchema = z.object({
   updated_at: z.string().optional(),
 });
 
-const url = Deno.env.get("SUPABASE_URL") ?? "";
-const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-const supabase = createClient(url, serviceRoleKey, {
+const SUPABASE_URL = Deno.env.get("HENDSUPABASE_URL")!;
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("HENDSUPABASE_SERVICE_ROLE_KEY")!;
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
   auth: {
     persistSession: false,
     autoRefreshToken: false,
