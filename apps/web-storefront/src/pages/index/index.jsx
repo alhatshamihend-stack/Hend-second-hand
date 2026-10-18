@@ -1,3 +1,4 @@
+console.log('🔥 INDEX.JSX LADDAS! Filen exekveras!');
 import { View, Text, Image } from '@tarojs/components';
 import { useEffect, useState } from 'react';
 import { supabase } from '../../utils/supabase.js';
