@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import Taro from '@tarojs/taro';
 import { View, Text, Image } from '@tarojs/components';
 
-import { SUPABASE_ANON_KEY, getProductQuery } from '../../utils/supabase';
+import { SUPABASE_ANON_KEY, getProductQuery } from '../../utils/supabase.js';
 
 export default function ProductPage() {
   const [product, setProduct] = useState(null);

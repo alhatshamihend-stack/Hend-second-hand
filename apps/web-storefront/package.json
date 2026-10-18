@@ -3,9 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "taro build --type weapp --watch",
+    "dev": "taro build --watch",
     "build:weapp": "taro build --type weapp",
     "build:h5": "taro build --type h5",
+    "dev:h5": "taro build --watch --type h5",
     "lint": "eslint src --ext .js,.jsx"
   },
   "dependencies": {
@@ -20,6 +21,7 @@
     "@babel/core": "^8.0.7",
     "@babel/preset-env": "^8.0.7",
     "@babel/preset-react": "^8.0.1",
+    "@babel/preset-typescript": "^8.0.7",
     "@tarojs/cli": "^4.0.0",
     "@tarojs/plugin-framework-react": "^4.0.0",
     "@tarojs/plugin-platform-h5": "^4.0.0",

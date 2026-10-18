@@ -1,21 +1,48 @@
-export const SUPABASE_URL = 'https://your-project.supabase.co';
-export const SUPABASE_ANON_KEY = 'your-anon-key';
+import { createClient } from '@supabase/supabase-js';
 
-export const getProductsQuery = () => {
-  const params = new URLSearchParams({
-    select: '*',
-    order: 'updated_at.desc',
-    limit: '10',
-  });
+const getEnvValue = (key) => {
+  if (typeof process === 'undefined' || !process.env) {
+    return '';
+  }
 
-  return `${SUPABASE_URL}/rest/v1/products_zzer?${params.toString()}`;
+  return process.env[key] || '';
 };
 
-export const getProductQuery = (id) => {
-  const params = new URLSearchParams({
-    select: '*',
-    zzer_item_id: `eq.${id}`,
-  });
+const supabaseUrl = getEnvValue('TARO_APP_SUPABASE_URL');
+const supabaseAnonKey = getEnvValue('TARO_APP_SUPABASE_ANON_KEY');
 
-  return `${SUPABASE_URL}/rest/v1/products_zzer?${params.toString()}`;
-};
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.warn('Supabase credentials missing');
+}
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: false,
+    autoRefreshToken: false,
+  },
+});
+
+export const SUPABASE_URL = supabaseUrl;
+export const SUPABASE_ANON_KEY = supabaseAnonKey;
+
+export function getProductQuery(id) {
+  if (!id) {
+    return '';
+  }
+
+  return `${supabaseUrl}/rest/v1/products_zzer?select=*&id=eq.${encodeURIComponent(id)}`;
+}
+
+export async function getLatestProducts() {
+  const { data, error } = await supabase
+    .from('products_zzer')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(10);
+
+  if (error) {
+    throw error;
+  }
+
+  return data || [];
+}

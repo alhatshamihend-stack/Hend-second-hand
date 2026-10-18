@@ -2,6 +2,7 @@ const path = require('node:path');
 
 const aliasMap = {
   '@': path.resolve(__dirname, '..', 'src'),
+  '@utils/supabase': path.resolve(__dirname, '..', 'src', 'utils', 'supabase.js'),
   '@sandougi/shared-schema': path.resolve(
     __dirname,
     '..',
@@ -36,13 +37,42 @@ module.exports = {
   },
   framework: 'react',
   compiler: 'webpack5',
+  env: {
+    TARO_APP_SUPABASE_URL: process.env.TARO_APP_SUPABASE_URL || '',
+    TARO_APP_SUPABASE_ANON_KEY: process.env.TARO_APP_SUPABASE_ANON_KEY || '',
+  },
   alias: { ...aliasMap },
   webpackChain(chain) {
     const resolveAlias = chain.resolve.alias;
+    const supabaseJsPath = path.resolve(__dirname, '..', 'src', 'utils', 'supabase.js');
 
     Object.entries(aliasMap).forEach(([key, value]) => {
-      resolveAlias.set(key, value);
+      if (key && value) {
+        resolveAlias.set(key, value);
+      }
     });
+
+    resolveAlias.set('@utils/supabase', supabaseJsPath);
+    resolveAlias.set('@/utils/supabase', supabaseJsPath);
+
+    chain.module
+      .rule('supabase-js')
+      .test(/src[\\/]utils[\\/]supabase\.js$/)
+      .exclude.add(/node_modules\/(?!@supabase)/)
+      .end()
+      .use('supabase-babel')
+      .loader(require.resolve('babel-loader'))
+      .options({
+        cacheDirectory: true,
+        babelrc: false,
+        configFile: false,
+        presets: [[require.resolve('@babel/preset-env'), { modules: false }]],
+      });
+
+    chain.module
+      .rule('js')
+      .exclude.add(/node_modules\/(?!@supabase)/)
+      .end();
 
     return chain;
   },
