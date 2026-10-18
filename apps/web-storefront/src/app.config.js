@@ -1,9 +1,13 @@
+// apps/web-storefront/src/app.config.js
 export default {
-  pages: ['pages/index/index', 'pages/product/index'],
+  pages: [
+    'pages/index/index', // MÅSTE matcha sökvägen till din index.jsx
+    'pages/product/index'
+  ],
   window: {
     backgroundTextStyle: 'light',
     navigationBarBackgroundColor: '#fff',
-    navigationBarTitleText: 'Zzer Storefront',
-    navigationBarTextStyle: 'black',
-  },
-};
+    navigationBarTitleText: 'Hend Second Hand',
+    navigationBarTextStyle: 'black'
+  }
+}
