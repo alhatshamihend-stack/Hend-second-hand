@@ -9,7 +9,6 @@
     "activeTab",
     "scripting",
     "webRequest",
-    "webRequestBlocking",
     "declarativeNetRequest"
   ],
   "host_permissions": [
