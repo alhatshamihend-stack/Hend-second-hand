@@ -12,11 +12,24 @@ const INITIAL_RETRY_DELAY_MS = 500;
 
 const productSchema = z.object({
   itemId: z.string().min(1),
-  title: z.string(),
+  title: z.string().min(1),
   brand: z.string(),
   price: z.number().finite().nonnegative(),
   degree: z.enum(["A", "B", "C", "D", "N/A"]),
   images: z.array(z.string().url()),
+  sku: z.string().default(""),
+  originalPrice: z.number().finite().nonnegative().nullable().default(null),
+  discount: z.number().finite().nonnegative().nullable().default(null),
+  category: z.string().nullable().default(null),
+  degreeExt: z.string().nullable().default(null),
+  storeLocation: z.string().nullable().default(null),
+  sellerName: z.string().nullable().default(null),
+  authCertificateUrl: z.string().nullable().default(null),
+  flaws: z.array(z.string()).default([]),
+  attributes: z.array(z.unknown()).default([]),
+  authenticityInfo: z.array(z.unknown()).default([]),
+  productDetails: z.record(z.string(), z.unknown()).default({}),
+  rawPayload: z.record(z.string(), z.unknown()).default({}),
 });
 
 export type ScrapedProduct = z.infer<typeof productSchema>;
@@ -84,6 +97,20 @@ function parsePrice(value: unknown): number {
     throw new MalformedApiResponseError("Missing or invalid data.detail.price");
   }
   return price;
+}
+
+function parseOptionalNumber(value: unknown): number | null {
+  if (value === undefined || value === null || value === "") return null;
+  if (typeof value === "number") {
+    return Number.isFinite(value) && value >= 0 ? value : null;
+  }
+  if (typeof value !== "string") return null;
+
+  const normalized = value.trim().replace(/[¥￥,\\s]/gu, "");
+  if (!/^\\d+(?:\\.\\d+)?$/u.test(normalized)) return null;
+
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
 }
 
 function parseDegreeValue(value: string): number | null {
@@ -163,7 +190,9 @@ export function mapZzerProduct(responseBody: unknown): ScrapedProduct {
     throw new MalformedApiResponseError("Missing data object in Zzer API response");
   }
 
-  const { detail, brand } = responseBody.data;
+  const data = responseBody.data;
+  const detail = data.detail;
+  const brand = data.brand;
   if (!isRecord(detail) || !isRecord(brand)) {
     throw new MalformedApiResponseError("Missing data.detail or data.brand in Zzer API response");
   }
@@ -171,24 +200,68 @@ export function mapZzerProduct(responseBody: unknown): ScrapedProduct {
     throw new MalformedApiResponseError("Invalid data.detail.imageList");
   }
 
+  const seller = isRecord(data.seller) ? data.seller : {};
+  const report = isRecord(detail.identifyReportModuleV2)
+    ? detail.identifyReportModuleV2
+    : {};
+  const rawDegree = detail.degreeDesc ?? detail.degree ?? detail.condition ?? null;
   const itemId = typeof detail.id === "string"
     ? detail.id.trim()
     : typeof detail.id === "number" && Number.isSafeInteger(detail.id)
       ? String(detail.id)
       : "";
-  const degree = normalizeDegree(detail.degreeDesc);
-  const degreeText = typeof detail.degreeDesc === "string" ? detail.degreeDesc.trim() : null;
-  const explicitNotAvailable = degreeText !== null && /^(N\/A|NA)$/iu.test(degreeText);
-  const missingDegree = detail.degreeDesc === undefined
-    || detail.degreeDesc === null
-    || degreeText === "";
+
+  const degree = normalizeDegree(rawDegree);
+  const degreeText = typeof rawDegree === "string" ? rawDegree.trim() : null;
+  const explicitNotAvailable = degreeText !== null && /^(N\\/A|NA)$/iu.test(degreeText);
+  const missingDegree = rawDegree === undefined || rawDegree === null || degreeText === "";
   if (!missingDegree && !explicitNotAvailable && degree === "N/A") {
     logger.warn("Could not normalize product degree; using N/A", {
       productId: itemId,
       errorType: "DegreeNormalizationWarning",
-      rawDegreeType: typeof detail.degreeDesc,
+      rawDegreeType: typeof rawDegree,
     });
   }
+
+  const flawDetails = Array.isArray(detail.flawInfo) ? detail.flawInfo : [];
+  const reportFlaws = Array.isArray(report.flaw) ? report.flaw : [];
+  const normalizedFlaws = flawDetails.flatMap((entry): string[] => {
+    if (!isRecord(entry)) return [];
+    const name = typeof entry.flawName === "string" ? entry.flawName.trim() : "";
+    const position = typeof entry.positionName === "string" ? entry.positionName.trim() : "";
+    if (!name) return [];
+    return [position ? position + ": " + name : name];
+  });
+  const flaws = Array.from(new Set([
+    ...normalizedFlaws,
+    ...reportFlaws.filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0),
+  ]));
+
+  const attributes = Array.isArray(data.productAttrV2) ? data.productAttrV2 : [];
+  const authenticityInfo = Array.isArray(data.question) ? data.question : [];
+  const productImagesV1 = Array.isArray(detail.imageListV1)
+    ? detail.imageListV1
+    : Array.isArray(report.productImagesV1)
+      ? report.productImagesV1
+      : [];
+
+  const productDetails: Record<string, unknown> = {
+    raw_detail: detail,
+    identify_report_module_v2: report,
+    attributes,
+    authenticity_info: authenticityInfo,
+    image_list_v1: productImagesV1,
+    category_main: detail.firstCategoryName ?? null,
+    category_sub: detail.categoryTwo ?? null,
+    store_id: detail.storeId ?? null,
+    warehouse_code: detail.locationWarehouse ?? null,
+    raw_degree: rawDegree,
+  };
+
+  const degreeExtValue = detail.degreeExtEn ?? detail.degreeExt;
+  const storeLocationValue = detail.storeTextEn ?? detail.storeText ?? detail.locationWarehouse;
+  const sellerNameValue = seller.nickName ?? detail.sellerName;
+  const authCertificateValue = detail.authCertificateUrl ?? detail.certificateUrl ?? null;
 
   return productSchema.parse({
     itemId,
@@ -197,6 +270,21 @@ export function mapZzerProduct(responseBody: unknown): ScrapedProduct {
     price: parsePrice(detail.price),
     degree,
     images: (detail.imageList ?? []).map(normalizeImage),
+    sku: typeof detail.sku === "string" ? detail.sku : "",
+    originalPrice: parseOptionalNumber(detail.originalPrice ?? detail.original_price),
+    discount: parseOptionalNumber(detail.discount),
+    category: typeof (detail.categoryTwo ?? detail.firstCategoryName) === "string"
+      ? String(detail.categoryTwo ?? detail.firstCategoryName)
+      : null,
+    degreeExt: typeof degreeExtValue === "string" ? degreeExtValue : null,
+    storeLocation: typeof storeLocationValue === "string" ? storeLocationValue : null,
+    sellerName: typeof sellerNameValue === "string" ? sellerNameValue : null,
+    authCertificateUrl: typeof authCertificateValue === "string" ? authCertificateValue : null,
+    flaws,
+    attributes,
+    authenticityInfo,
+    productDetails,
+    rawPayload: responseBody,
   });
 }
 
@@ -293,7 +381,23 @@ async function ingestProduct(
     brand: product.brand,
     selling_price_cny: product.price,
     photos: product.images,
+    sku: product.sku,
+    originalPrice: product.originalPrice,
+    discount: product.discount,
+    category: product.category,
+    degreeExt: product.degreeExt,
+    storeLocation: product.storeLocation,
+    sellerName: product.sellerName,
+    auth_certificate_url: product.authCertificateUrl,
+    flaws: product.flaws,
+    attributes: product.attributes,
+    authenticityInfo: product.authenticityInfo,
+    product_details: product.productDetails,
+    raw_payload: product.rawPayload,
   };
+  if (product.originalPrice !== null) {
+    zzerPayload.original_price = product.originalPrice;
+  }
   if (product.degree !== "N/A") {
     zzerPayload.condition_grade = product.degree;
   }
