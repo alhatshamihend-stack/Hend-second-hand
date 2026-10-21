@@ -1,40 +1,26 @@
-# Sandougi Zzer Connector
+# Sandougi Zzer Connector (legacy experiment)
 
-The extension forwards the JSON body of `POST https://gwapi-v2.goshare2.com/producer/api/data/collect/track`
-to the Supabase `zzer-track-ingest` Edge Function. It sends the body as
-`{ zzer_payload, captured_at }`. The extension does not read `.env.local` or any
-other project environment file.
+This directory contains an earlier Chrome extension experiment. It is **not the primary product-ingestion path**.
 
-## Configure Supabase
+The request `POST https://gwapi-v2.goshare2.com/producer/api/data/collect/track` is an analytics/track request, not a dependable full product-detail response. The background worker now logs that event but intentionally does not upload it. This avoids saving partial data or overwriting a complete product record.
 
-1. Load the `extension` directory as an unpacked extension from `chrome://extensions`.
-2. Open the extension service worker's developer tools.
-3. In its Console, set the Supabase project URL and its public anon/publishable key:
+## Current supported capture path
 
-   ```js
-   chrome.storage.local.set({
-     supabaseProjectUrl: "https://<project-ref>.supabase.co",
-     supabaseAnonKey: "<public-anon-or-publishable-key>"
-   });
-   ```
+Use the standalone TypeScript scraper documented in the root [README](../README.md). It takes one explicit product ID and fetches only that product's detail endpoint. It does not walk listing pages or automatically follow related-product lists.
 
-   Use only the public anon/publishable key, never a service-role key. The URL
-   must be the HTTPS URL of a Supabase project. Do not paste key values into
-   source files, screenshots, or logs.
+## Future extension work
 
-The settings are stored in this browser profile's extension storage. If either
-setting is absent or invalid, the extension will not forward the request and
-will log a configuration message without printing any key or request body.
+Do not re-enable automatic track-event ingestion. If extension-based capture is resumed, implement a visible user action such as **Save this product**, bind it to the product ID selected by the user, and forward the matching detail response only after that action. Never put a Supabase service-role/secret key in extension code; the browser can only use a public client key and a properly protected backend endpoint.
 
-## Verify the connector
+## Existing configuration for the legacy extension
 
-With the extension configured, visit a page that causes Zzer to make the track
-POST above. In the service worker developer tools' Network panel, verify one
-POST to `/functions/v1/zzer-track-ingest` with a JSON body containing
-`zzer_payload` and `captured_at`, and verify its response. Confirm the Edge
-Function is deployed and accepts the project's public key before testing.
+The extension's remaining message handler reads the following values from `chrome.storage.local`:
 
-To check missing-configuration behavior, remove the settings in the service
-worker Console with
-`chrome.storage.local.remove(["supabaseProjectUrl", "supabaseAnonKey"])` and
-trigger a track POST. No Supabase request should be made.
+```js
+chrome.storage.local.set({
+  supabaseProjectUrl: "https://<project-ref>.supabase.co",
+  supabaseAnonKey: "<public-anon-or-publishable-key>"
+});
+```
+
+Use only a public anon/publishable key. These settings are not read from `.env`.
