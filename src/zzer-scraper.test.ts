@@ -45,6 +45,98 @@ test("defaults a missing imageList to an empty array and validates supplied entr
   assert.throws(() => mapZzerProduct(makeProductResponse("9新", "not-an-array")));
 });
 
+test("maps English condition aliases to the shared A-D grade scale", () => {
+  const cases: Array<[unknown, string]> = [
+    ["new", "A"],
+    ["like new", "A"],
+    ["excellent", "A"],
+    ["very good", "A"],
+    ["good", "B"],
+    ["bra", "B"],
+    ["fair", "C"],
+    ["poor", "D"],
+    ["e", "N/A"],
+  ];
+
+  for (const [rawGrade, expected] of cases) {
+    assert.equal(normalizeDegree(rawGrade), expected, "alias " + String(rawGrade));
+  }
+});
+
+test("preserves extended details from the real Zzer API response shape", () => {
+  const raw = {
+    code: "100000",
+    data: {
+      detail: {
+        id: "2585638151251599365",
+        sku: "261008782292135",
+        name: "Gucci shoulder bag",
+        price: "5000",
+        originalPrice: "12000",
+        discount: 4.1,
+        brand: "Gucci",
+        degreeDesc: "9.5新",
+        degreeExtEn: "Light signs of use",
+        firstCategoryName: "包袋",
+        categoryTwo: "单肩包",
+        storeId: 40,
+        storeTextEn: "Beijing B8-7",
+        locationWarehouse: "B8-7",
+        imageList: ["product-images/main.jpg"],
+        imageListV1: [
+          { type: 0, url: "product-images/main.jpg" },
+          { type: 1, url: "product-original-images/flaw.jpg", name: "轻微内里污渍" },
+        ],
+        flawInfo: [
+          { positionName: "外观", flawName: "轻微包身整体磨损" },
+        ],
+        identifyReportModuleV2: {
+          flaw: ["轻微内里污渍", "轻微肩带磨损"],
+          maintain: [{ type: "维修痕迹", names: [] }],
+          productImagesV1: [
+            { type: 0, url: "product-images/main.jpg" },
+            { type: 1, url: "product-original-images/flaw.jpg", name: "轻微内里污渍" },
+          ],
+        },
+      },
+      brand: { name: "Gucci" },
+      seller: { nickName: "188****0088" },
+      productAttrV2: [
+        {
+          fieldId: "proc_material_bag",
+          name: "材质",
+          nameEn: "Material",
+          values: [{ value: "牛皮" }, { value: "帆布" }],
+        },
+      ],
+      question: [
+        { name: "正品鉴别", nameEn: "Authenticity Verification", value: "已鉴别" },
+      ],
+    },
+    msg: "成功",
+  };
+
+  const product = mapZzerProduct(raw);
+
+  assert.equal(product.itemId, "2585638151251599365");
+  assert.equal(product.sku, "261008782292135");
+  assert.equal(product.originalPrice, 12000);
+  assert.equal(product.discount, 4.1);
+  assert.equal(product.category, "单肩包");
+  assert.equal(product.storeLocation, "Beijing B8-7");
+  assert.equal(product.sellerName, "188****0088");
+  assert.equal(product.degree, "A");
+  assert.equal(product.flaws.includes("外观: 轻微包身整体磨损"), true);
+  assert.equal(product.flaws.includes("轻微内里污渍"), true);
+  assert.equal(product.attributes.length, 1);
+  assert.equal(product.authenticityInfo.length, 1);
+  assert.equal(product.productDetails.raw_detail !== undefined, true);
+  assert.equal(
+    ((product.rawPayload.data as Record<string, unknown>).detail as Record<string, unknown>).id,
+    "2585638151251599365",
+  );
+});
+
 test("ingests a valid N/A grade without sending condition_grade", async () => {
   const originalFetch = globalThis.fetch;
   const originalEnvironment = {
