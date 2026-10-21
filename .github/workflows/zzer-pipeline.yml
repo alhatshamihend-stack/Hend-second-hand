@@ -1,0 +1,38 @@
+name: ZZER pipeline checks
+
+on:
+  pull_request:
+    paths:
+      - "src/**"
+      - "supabase/functions/zzer-track-ingest/**"
+      - "supabase/migrations/**"
+      - "package.json"
+      - "bun.lock"
+      - ".github/workflows/zzer-pipeline.yml"
+  push:
+    branches:
+      - main
+      - "chatgpt/zzer-full-detail-ingest"
+    paths:
+      - "src/**"
+      - "supabase/functions/zzer-track-ingest/**"
+      - "supabase/migrations/**"
+      - "package.json"
+      - "bun.lock"
+      - ".github/workflows/zzer-pipeline.yml"
+
+jobs:
+  zzer-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install locked dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Run ZZER scraper tests
+        run: bun run test:zzer
