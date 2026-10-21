@@ -106,8 +106,8 @@ function parseOptionalNumber(value: unknown): number | null {
   }
   if (typeof value !== "string") return null;
 
-  const normalized = value.trim().replace(/[¥￥,\\s]/gu, "");
-  if (!/^\\d+(?:\\.\\d+)?$/u.test(normalized)) return null;
+  const normalized = value.trim().replace(/[¥￥,\s]/gu, "");
+  if (!/^\d+(?:\.\d+)?$/u.test(normalized)) return null;
 
   const parsed = Number(normalized);
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
@@ -213,7 +213,7 @@ export function mapZzerProduct(responseBody: unknown): ScrapedProduct {
 
   const degree = normalizeDegree(rawDegree);
   const degreeText = typeof rawDegree === "string" ? rawDegree.trim() : null;
-  const explicitNotAvailable = degreeText !== null && /^(N\\/A|NA)$/iu.test(degreeText);
+  const explicitNotAvailable = degreeText !== null && /^(N\/A|NA)$/iu.test(degreeText);
   const missingDegree = rawDegree === undefined || rawDegree === null || degreeText === "";
   if (!missingDegree && !explicitNotAvailable && degree === "N/A") {
     logger.warn("Could not normalize product degree; using N/A", {
