@@ -142,13 +142,13 @@ test("ingests a valid N/A grade without sending condition_grade", async () => {
   const originalEnvironment = {
     zzerToken: process.env.ZZER_AUTH_TOKEN,
     supabaseUrl: process.env.SUPABASE_URL,
-    supabaseKey: process.env.SUPABASE_KEY,
+    supabaseKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
   };
   let ingestBody: Record<string, unknown> | undefined;
 
   process.env.ZZER_AUTH_TOKEN = "test-token";
   process.env.SUPABASE_URL = "https://project.example.supabase.co";
-  process.env.SUPABASE_KEY = "test-key";
+  process.env.SUPABASE_SERVICE_ROLE_KEY = "test-key";
   globalThis.fetch = async (input, init) => {
     if (String(input).startsWith("https://gwapi-v2.goshare2.com/")) {
       return Response.json(makeProductResponse("5新"));
@@ -168,7 +168,7 @@ test("ingests a valid N/A grade without sending condition_grade", async () => {
     globalThis.fetch = originalFetch;
     restoreEnvironment("ZZER_AUTH_TOKEN", originalEnvironment.zzerToken);
     restoreEnvironment("SUPABASE_URL", originalEnvironment.supabaseUrl);
-    restoreEnvironment("SUPABASE_KEY", originalEnvironment.supabaseKey);
+    restoreEnvironment("SUPABASE_SERVICE_ROLE_KEY", originalEnvironment.supabaseKey);
   }
 });
 
