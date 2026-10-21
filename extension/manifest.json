@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Sandougi Zzer Connector",
-  "version": "1.0.0",
-  "description": "Sends Zzer product data to the Sandougi Supabase ingest endpoint.",
+  "version": "1.0.1",
+  "description": "Observes Zzer analytics events for debugging; does not upload product data.",
   "permissions": [
     "storage",
     "tabs",
