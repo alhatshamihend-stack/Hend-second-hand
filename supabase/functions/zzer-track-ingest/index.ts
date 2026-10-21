@@ -352,6 +352,16 @@ serve(async (req: Request) => {
     return jsonResponse({ ok: false, error: "Method not allowed" }, 405);
   }
 
+  // This endpoint writes through the service-role client. Do not allow public anon
+  // clients to invoke it; only the trusted local/server-side scraper may submit data.
+  const expectedAuthorization = "Bearer " + SUPABASE_SERVICE_ROLE_KEY;
+  if (
+    req.headers.get("authorization") !== expectedAuthorization ||
+    req.headers.get("apikey") !== SUPABASE_SERVICE_ROLE_KEY
+  ) {
+    return jsonResponse({ ok: false, error: "Unauthorized" }, 401);
+  }
+
   try {
     const body: unknown = await req.json();
     const parsedEnvelope = EnvelopeSchema.safeParse(body);

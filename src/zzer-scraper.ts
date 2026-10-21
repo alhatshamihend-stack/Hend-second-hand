@@ -325,9 +325,9 @@ async function requestWithRetry(url: string, init: RequestInit): Promise<Respons
 function getRequiredEnvironment(): { zzerToken: string; supabaseUrl: string; supabaseKey: string } {
   const zzerToken = process.env.ZZER_AUTH_TOKEN?.trim();
   const supabaseUrl = process.env.SUPABASE_URL?.trim();
-  const supabaseKey = process.env.SUPABASE_KEY?.trim();
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
   if (!zzerToken || !supabaseUrl || !supabaseKey) {
-    throw new Error("Missing required environment configuration");
+    throw new Error("Missing required environment configuration: ZZER_AUTH_TOKEN, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY");
   }
 
   try {

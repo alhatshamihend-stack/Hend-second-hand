@@ -9,7 +9,7 @@ The **standalone TypeScript scraper is the primary ingestion path**. It fetches 
 3. Set:
    - `ZZER_AUTH_TOKEN`: your own valid ZZER session token.
    - `SUPABASE_URL`: the URL of the intended Supabase project.
-   - `SUPABASE_KEY`: a public anon/publishable key accepted by the Edge Function. Never put a Supabase service-role/secret key in a browser extension or commit it to Git.
+   - `SUPABASE_SERVICE_ROLE_KEY`: the service-role key for this trusted **local/server-side scraper only**. The ingest function verifies this key before accepting writes.
 4. Install dependencies with `bun install`.
 5. Run the scraper with the exact product ID:
 
@@ -18,6 +18,8 @@ The **standalone TypeScript scraper is the primary ingestion path**. It fetches 
    ```
 
    Replace the example ID with the product you intentionally selected. The scraper does not crawl listing pages or follow similar-product recommendations.
+
+**Security:** Keep `.env` local and out of Git. Never paste the service-role key into the Chrome extension, a browser, source files, issue comments, screenshots, or chat. The browser extension must only use a public key; this pipeline's service-role key belongs only in the local/server-side environment. The ingest endpoint compares both the `Authorization` and `apikey` headers against the server-side key.
 
 ## What is stored
 
