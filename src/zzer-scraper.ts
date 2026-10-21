@@ -144,12 +144,24 @@ export function normalizeDegree(value: unknown): Degree {
     return "N/A";
   }
   if (typeof value === "string") {
-    const normalized = value.trim().toUpperCase();
-    if (normalized === "N/A" || normalized === "NA") return "N/A";
+    const trimmed = value.trim();
+    const normalized = trimmed.toUpperCase();
+    const lower = trimmed.toLowerCase();
+
+    if (normalized === "N/A" || normalized === "NA" || lower === "e") return "N/A";
     if (normalized === "A" || normalized === "B" || normalized === "C" || normalized === "D") {
       return normalized;
     }
-    if (/^(全新|新品|未使用|十成新|10成新|10新)$/u.test(value.trim())) return "A";
+
+    // Harmonize the English aliases used by the legacy extension with ZZER's 新 grade scale.
+    if (["new", "as new", "som ny", "ny", "like new", "like-new", "likenew", "excellent", "very good", "very_good", "全新", "新品", "未使用", "十成新", "10成新", "10新"].includes(lower)) {
+      return "A";
+    }
+    if (["good", "bra", "gott", "good condition", "in good condition"].includes(lower)) {
+      return "B";
+    }
+    if (["fair", "acceptable", "used"].includes(lower)) return "C";
+    if (["poor", "heavily used"].includes(lower)) return "D";
   }
 
   const numericGrade = typeof value === "number"
