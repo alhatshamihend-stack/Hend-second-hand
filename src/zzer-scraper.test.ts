@@ -137,6 +137,34 @@ test("preserves extended details from the real Zzer API response shape", () => {
   );
 });
 
+test("supports defectList as a fallback for flawInfo", () => {
+  const raw = {
+    data: {
+      detail: {
+        id: "defect-list-product",
+        name: "Test bag with defects",
+        price: "2850",
+        degreeDesc: "9.5新",
+        defectList: [
+          { name: "Scuff on toe" },
+          "Light sole wear",
+          { desc: "Loose stitch", position: "Interior" },
+          { name: "  " },
+          null,
+        ],
+      },
+      brand: { name: "Test brand" },
+    },
+  };
+
+  const product = mapZzerProduct(raw);
+  assert.deepEqual(product.flaws, [
+    "Scuff on toe",
+    "Light sole wear",
+    "Interior: Loose stitch",
+  ]);
+});
+
 test("ingests a valid N/A grade without sending condition_grade", async () => {
   const originalFetch = globalThis.fetch;
   const originalEnvironment = {

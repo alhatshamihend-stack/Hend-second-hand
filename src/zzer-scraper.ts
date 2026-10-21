@@ -235,12 +235,32 @@ export function mapZzerProduct(responseBody: unknown): ScrapedProduct {
     });
   }
 
-  const flawDetails = Array.isArray(detail.flawInfo) ? detail.flawInfo : [];
+  // ZZER has used both flawInfo and defectList for product defect descriptions.
+  // Prefer the current flawInfo field, with defectList as a compatibility alias.
+  const flawDetails = Array.isArray(detail.flawInfo)
+    ? detail.flawInfo
+    : Array.isArray(detail.defectList)
+      ? detail.defectList
+      : [];
   const reportFlaws = Array.isArray(report.flaw) ? report.flaw : [];
   const normalizedFlaws = flawDetails.flatMap((entry): string[] => {
+    if (typeof entry === "string") {
+      const value = entry.trim();
+      return value ? [value] : [];
+    }
     if (!isRecord(entry)) return [];
-    const name = typeof entry.flawName === "string" ? entry.flawName.trim() : "";
-    const position = typeof entry.positionName === "string" ? entry.positionName.trim() : "";
+    const name = typeof entry.flawName === "string"
+      ? entry.flawName.trim()
+      : typeof entry.name === "string"
+        ? entry.name.trim()
+        : typeof entry.desc === "string"
+          ? entry.desc.trim()
+          : "";
+    const position = typeof entry.positionName === "string"
+      ? entry.positionName.trim()
+      : typeof entry.position === "string"
+        ? entry.position.trim()
+        : "";
     if (!name) return [];
     return [position ? position + ": " + name : name];
   });
