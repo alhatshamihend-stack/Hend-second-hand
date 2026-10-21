@@ -6,6 +6,7 @@ on:
       - "src/**"
       - "supabase/functions/zzer-track-ingest/**"
       - "supabase/migrations/**"
+      - "extension/**"
       - "package.json"
       - "bun.lock"
       - ".github/workflows/zzer-pipeline.yml"
@@ -17,6 +18,7 @@ on:
       - "src/**"
       - "supabase/functions/zzer-track-ingest/**"
       - "supabase/migrations/**"
+      - "extension/**"
       - "package.json"
       - "bun.lock"
       - ".github/workflows/zzer-pipeline.yml"
@@ -36,3 +38,9 @@ jobs:
 
       - name: Run ZZER scraper tests
         run: bun run test:zzer
+
+      - name: Check extension JavaScript syntax
+        run: node --check extension/background.js
+
+      - name: Validate extension manifest JSON
+        run: node --input-type=module -e "import { readFileSync } from 'node:fs'; JSON.parse(readFileSync('extension/manifest.json', 'utf8'));"
