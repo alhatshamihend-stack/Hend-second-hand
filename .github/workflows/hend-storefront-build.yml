@@ -1,0 +1,36 @@
+name: Hend storefront H5 build check
+
+on:
+  push:
+    branches:
+      - main
+      - "chatgpt/fix-hend-zzer-product-display"
+    paths:
+      - "apps/web-storefront/**"
+      - ".github/workflows/hend-storefront-build.yml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "apps/web-storefront/**"
+      - ".github/workflows/hend-storefront-build.yml"
+
+jobs:
+  build-h5:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install locked dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build Hend storefront for H5
+        run: cd apps/web-storefront && bun run build:h5
+        env:
+          # Build-only placeholders; never used for deployment or database access.
+          TARO_APP_SUPABASE_URL: https://build-placeholder.supabase.co
+          TARO_APP_SUPABASE_ANON_KEY: build-only-placeholder-key
