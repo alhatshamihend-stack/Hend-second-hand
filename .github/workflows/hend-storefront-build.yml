@@ -1,9 +1,16 @@
-name: Hend storefront build check
+name: Hend storefront H5 build check
 
 on:
   push:
     branches:
+      - main
       - "chatgpt/fix-hend-zzer-product-display"
+    paths:
+      - "apps/web-storefront/**"
+      - ".github/workflows/hend-storefront-build.yml"
+  pull_request:
+    branches:
+      - main
     paths:
       - "apps/web-storefront/**"
       - ".github/workflows/hend-storefront-build.yml"
