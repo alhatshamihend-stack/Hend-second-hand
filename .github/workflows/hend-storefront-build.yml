@@ -1,0 +1,25 @@
+name: Hend storefront build check
+
+on:
+  push:
+    branches:
+      - "chatgpt/fix-hend-zzer-product-display"
+    paths:
+      - "apps/web-storefront/**"
+      - ".github/workflows/hend-storefront-build.yml"
+
+jobs:
+  build-h5:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install locked dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build Hend storefront for H5
+        run: cd apps/web-storefront && bun run build:h5
