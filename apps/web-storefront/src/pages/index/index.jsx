@@ -53,7 +53,7 @@ export default function Index() {
       try {
         const { data, error } = await supabase
           .from('products_zzer')
-          .select('*')
+          .select('id, zzer_item_id, title, brand, category, condition_grade, selling_price_cny, photos, updated_at, auth_certificate_url')
           .order('updated_at', { ascending: false })
           .limit(10);
 
@@ -69,33 +69,8 @@ export default function Index() {
 
     fetchProducts();
 
-    const subscription = supabase
-      .channel('zzer-products')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'products_zzer' },
-        (payload) => {
-          if (!isMounted) return;
-
-          if (payload.eventType === 'INSERT') {
-            setProducts((prev) => [payload.new, ...prev].slice(0, 10));
-          } else if (payload.eventType === 'UPDATE') {
-            setProducts((prev) => {
-              const exists = prev.some((product) => product.id === payload.new.id);
-              if (!exists) return [payload.new, ...prev].slice(0, 10);
-              return prev
-                .map((product) => (product.id === payload.new.id ? payload.new : product))
-                .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))
-                .slice(0, 10);
-            });
-          }
-        },
-      )
-      .subscribe();
-
     return () => {
       isMounted = false;
-      supabase.removeChannel(subscription);
     };
   }, []);
 
