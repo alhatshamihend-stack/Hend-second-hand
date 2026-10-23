@@ -23,3 +23,7 @@ jobs:
 
       - name: Build Hend storefront for H5
         run: cd apps/web-storefront && bun run build:h5
+        env:
+          # Build-only placeholders; never used for deployment or database access.
+          TARO_APP_SUPABASE_URL: https://build-placeholder.supabase.co
+          TARO_APP_SUPABASE_ANON_KEY: build-only-placeholder-key
