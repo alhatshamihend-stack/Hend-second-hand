@@ -38,8 +38,9 @@ module.exports = {
   framework: 'react',
   compiler: 'webpack5',
   env: {
-    TARO_APP_SUPABASE_URL: process.env.TARO_APP_SUPABASE_URL || '',
-    TARO_APP_SUPABASE_ANON_KEY: process.env.TARO_APP_SUPABASE_ANON_KEY || '',
+    // Taro passes these values into DefinePlugin; JSON.stringify keeps strings quoted in compiled code.
+    TARO_APP_SUPABASE_URL: JSON.stringify(process.env.TARO_APP_SUPABASE_URL || ''),
+    TARO_APP_SUPABASE_ANON_KEY: JSON.stringify(process.env.TARO_APP_SUPABASE_ANON_KEY || ''),
   },
   alias: { ...aliasMap },
   webpackChain(chain) {
