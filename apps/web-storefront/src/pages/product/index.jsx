@@ -60,7 +60,7 @@ export default function ProductDetail() {
       try {
         const { data, error } = await supabase
           .from('products_zzer')
-          .select('*')
+          .select('id, zzer_item_id, title, brand, category, condition_grade, selling_price_cny, photos, updated_at, auth_certificate_url')
           .eq('zzer_item_id', productId)
           .single();
 
